@@ -13,6 +13,8 @@ public class Config {
 
     public int listenPort = 20059;
     public String backendUrl = "http://localhost:8000/api/v1/transactions/rfid-reads";
+    // Shared device credential sent to the backend in the x-api-key header. Empty = no header.
+    public String apiKey = "";
     public boolean postEnabled = true;
     public FrameParser.Format frameFormat = FrameParser.Format.AUTO_DETECT;
     // Quiet gap (ms) with no reads of an EPC before its presence-session closes.
@@ -36,6 +38,7 @@ public class Config {
         String v;
         if ((v = get(p, "listen.port")) != null)     c.listenPort = (int) parseLong(v, c.listenPort);
         if ((v = get(p, "backend.url")) != null)      c.backendUrl = v.trim();
+        if ((v = get(p, "api.key")) != null)          c.apiKey = v.trim();
         if ((v = get(p, "post.enabled")) != null)     c.postEnabled = Boolean.parseBoolean(v.trim());
         if ((v = get(p, "frame.format")) != null)     c.frameFormat = FrameParser.Format.valueOf(v.trim().toUpperCase());
         if ((v = get(p, "session.gap.ms")) != null)   c.sessionGapMs = parseLong(v, c.sessionGapMs);

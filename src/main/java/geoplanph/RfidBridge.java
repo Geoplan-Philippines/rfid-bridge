@@ -28,11 +28,11 @@ public class RfidBridge {
 
     public static void main(String[] args) throws Exception {
         Config cfg = Config.load();
-        log("RFID bridge starting | listen=:%d  backend=%s  post=%s  format=%s  session.gap=%dms  session.max=%s",
-                cfg.listenPort, cfg.backendUrl, cfg.postEnabled, cfg.frameFormat, cfg.sessionGapMs,
-                cfg.sessionMaxMs > 0 ? cfg.sessionMaxMs + "ms" : "off");
+        log("RFID bridge starting | listen=:%d  backend=%s  post=%s  apiKey=%s  format=%s  session.gap=%dms  session.max=%s",
+                cfg.listenPort, cfg.backendUrl, cfg.postEnabled, cfg.apiKey.isEmpty() ? "unset" : "set",
+                cfg.frameFormat, cfg.sessionGapMs, cfg.sessionMaxMs > 0 ? cfg.sessionMaxMs + "ms" : "off");
 
-        BackendClient backend = new BackendClient(cfg.backendUrl);
+        BackendClient backend = new BackendClient(cfg.backendUrl, cfg.apiKey);
         ExecutorService posters = Executors.newFixedThreadPool(4);
         SessionTracker tracker = new SessionTracker(cfg.sessionGapMs, cfg.sessionMaxMs);
 
