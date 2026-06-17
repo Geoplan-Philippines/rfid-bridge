@@ -5,9 +5,10 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 /**
  * RFID -> backend bridge.
@@ -27,12 +28,28 @@ public class RfidBridge {
 
     public static void main(String[] args) throws Exception {
         Config cfg = Config.load();
-        log("RFID bridge starting | listen=:%d  backend=%s  post=%s  format=%s  dedup=%dms",
-                cfg.listenPort, cfg.backendUrl, cfg.postEnabled, cfg.frameFormat, cfg.dedupWindowMs);
+        log("RFID bridge starting | listen=:%d  backend=%s  post=%s  format=%s  session.gap=%dms  session.max=%s",
+                cfg.listenPort, cfg.backendUrl, cfg.postEnabled, cfg.frameFormat, cfg.sessionGapMs,
+                cfg.sessionMaxMs > 0 ? cfg.sessionMaxMs + "ms" : "off");
 
         BackendClient backend = new BackendClient(cfg.backendUrl);
         ExecutorService posters = Executors.newFixedThreadPool(4);
-        ConcurrentHashMap<String, Long> lastSent = new ConcurrentHashMap<>();
+        SessionTracker tracker = new SessionTracker(cfg.sessionGapMs, cfg.sessionMaxMs);
+
+        // Sweeper: close presence-sessions whose tag has gone quiet, so the same EPC
+        // reappearing later starts a fresh transaction. Logs a summary per close.
+        ScheduledExecutorService sweeper = Executors.newSingleThreadScheduledExecutor(r -> {
+            Thread t = new Thread(r, "session-sweeper");
+            t.setDaemon(true);
+            return t;
+        });
+        sweeper.scheduleAtFixedRate(() -> {
+            long now = System.currentTimeMillis();
+            for (SessionTracker.Session s : tracker.sweepExpired(now)) {
+                log("TRANSACTION CLOSED: %s  reads=%d  duration=%dms  (idle>=%dms)",
+                        s.epc, s.reads(), s.durationMs(), cfg.sessionGapMs);
+            }
+        }, 1, 1, TimeUnit.SECONDS);
 
         try (ServerSocket server = new ServerSocket(cfg.listenPort)) {
             log("Listening for reader connections on port %d ...", cfg.listenPort);
@@ -40,7 +57,7 @@ public class RfidBridge {
                 Socket sock = server.accept();
                 String peer = String.valueOf(sock.getRemoteSocketAddress());
                 log("Reader connected: %s", peer);
-                Thread t = new Thread(() -> handle(sock, peer, cfg, backend, posters, lastSent),
+                Thread t = new Thread(() -> handle(sock, peer, cfg, backend, posters, tracker),
                         "reader-" + peer);
                 t.setDaemon(true);
                 t.start();
@@ -49,7 +66,7 @@ public class RfidBridge {
     }
 
     private static void handle(Socket sock, String peer, Config cfg, BackendClient backend,
-                               ExecutorService posters, ConcurrentHashMap<String, Long> lastSent) {
+                               ExecutorService posters, SessionTracker tracker) {
         FrameParser parser = new FrameParser(cfg.frameFormat);
         byte[] buf = new byte[4096];
         try (InputStream in = sock.getInputStream()) {
@@ -58,18 +75,17 @@ public class RfidBridge {
                 if (n == 0) continue;
                 if (cfg.logRaw) log("RX %s  %s", peer, FrameParser.hex(buf, 0, n, true));
                 for (FrameParser.TagRead tr : parser.feed(buf, n)) {
-                    long now = System.currentTimeMillis();
-                    Long prev = lastSent.get(tr.epc);
-                    if (prev != null && now - prev < cfg.dedupWindowMs) {
-                        continue; // same EPC seen within the dedup window -> skip
-                    }
-                    lastSent.put(tr.epc, now);
+                    // Only the FIRST read of a tag's presence opens a transaction. Repeats of the
+                    // same EPC while it's still in the field are counted but never re-POSTed; the
+                    // sweeper closes the session once the tag goes quiet (see main()).
+                    SessionTracker.Session opened =
+                            tracker.onRead(tr.epc, tr.deviceNo, tr.antennaNo, System.currentTimeMillis());
+                    if (opened == null) continue; // same presence -> stay quiet
 
-                    // >>> what you asked for: print every detected EPC <<<
-                    log("EPC DETECTED: %s   (dev=%d ant=%d)", tr.epc, tr.deviceNo, tr.antennaNo);
+                    log("TRANSACTION OPENED: %s   (dev=%d ant=%d)", opened.epc, opened.deviceNo, opened.antennaNo);
 
                     if (cfg.postEnabled) {
-                        final String epc = tr.epc;
+                        final String epc = opened.epc;
                         posters.submit(() -> backend.sendRead(epc));
                     }
                 }
