@@ -13,14 +13,20 @@ public class BackendClient {
             .connectTimeout(Duration.ofSeconds(5))
             .build();
     private final String url;
+    private final String apiKey;
 
-    public BackendClient(String url) { this.url = url; }
+    public BackendClient(String url, String apiKey) {
+        this.url = url;
+        this.apiKey = apiKey == null ? "" : apiKey;
+    }
 
     public void sendRead(String epc) {
         String body = "{\"epcId\":\"" + epc + "\"}";
-        HttpRequest req = HttpRequest.newBuilder(URI.create(url))
+        HttpRequest.Builder builder = HttpRequest.newBuilder(URI.create(url))
                 .timeout(Duration.ofSeconds(5))
-                .header("Content-Type", "application/json")
+                .header("Content-Type", "application/json");
+        if (!apiKey.isEmpty()) builder.header("x-api-key", apiKey);
+        HttpRequest req = builder
                 .POST(HttpRequest.BodyPublishers.ofString(body))
                 .build();
         try {

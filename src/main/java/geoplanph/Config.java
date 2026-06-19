@@ -13,9 +13,15 @@ public class Config {
 
     public int listenPort = 20059;
     public String backendUrl = "http://localhost:8000/api/v1/transactions/rfid-reads";
+    // Shared device credential sent to the backend in the x-api-key header. Empty = no header.
+    public String apiKey = "";
     public boolean postEnabled = true;
     public FrameParser.Format frameFormat = FrameParser.Format.AUTO_DETECT;
-    public long dedupWindowMs = 3000;
+    // Quiet gap (ms) with no reads of an EPC before its presence-session closes.
+    // One session = one /rfid-reads POST = one backend transaction.
+    public long sessionGapMs = 5000;
+    // Safety cap (ms): force-close a session this long after it opened. 0 = disabled.
+    public long sessionMaxMs = 0;
     public boolean logRaw = true;
 
     public static Config load() {
@@ -32,9 +38,12 @@ public class Config {
         String v;
         if ((v = get(p, "listen.port")) != null)     c.listenPort = (int) parseLong(v, c.listenPort);
         if ((v = get(p, "backend.url")) != null)      c.backendUrl = v.trim();
+        if ((v = get(p, "api.key")) != null)          c.apiKey = v.trim();
         if ((v = get(p, "post.enabled")) != null)     c.postEnabled = Boolean.parseBoolean(v.trim());
         if ((v = get(p, "frame.format")) != null)     c.frameFormat = FrameParser.Format.valueOf(v.trim().toUpperCase());
-        if ((v = get(p, "dedup.window.ms")) != null)  c.dedupWindowMs = parseLong(v, c.dedupWindowMs);
+        if ((v = get(p, "session.gap.ms")) != null)   c.sessionGapMs = parseLong(v, c.sessionGapMs);
+        else if ((v = get(p, "dedup.window.ms")) != null) c.sessionGapMs = parseLong(v, c.sessionGapMs); // legacy alias
+        if ((v = get(p, "session.max.ms")) != null)   c.sessionMaxMs = parseLong(v, c.sessionMaxMs);
         if ((v = get(p, "log.raw")) != null)          c.logRaw = Boolean.parseBoolean(v.trim());
         return c;
     }
