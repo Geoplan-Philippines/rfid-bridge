@@ -55,6 +55,7 @@ A fake reader connects and pushes sample EPCs (incl. `AAAAAA000111`).
 |---|---|---|
 | `listen.port` | 20059 | Must equal the reader's Destination Port |
 | `backend.url` | http://localhost:8000/api/v1/transactions/rfid-reads | POST target |
+| `api.key` | *(empty)* | Device credential sent in `x-api-key`; create one via backend API keys admin endpoint |
 | `post.enabled` | true | `false` = only print EPCs, no HTTP (use before backend is ready) |
 | `frame.format` | AUTO_DETECT | `AUTO_VAR` \| `AUTO_FIXED12` \| `PROTOCOL_E0` — pin once confirmed from RX logs |
 | `session.gap.ms` | 5000 | Quiet time (ms) with no reads before a tag's presence-session closes. Same EPC after this gap = new transaction. (Legacy alias: `dedup.window.ms`.) |
