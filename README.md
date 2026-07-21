@@ -6,6 +6,31 @@ and POSTs it to the backend as `{"epcId":"<EPC>"}`.
 The reader is configured as a **TCP Client** dialing out to `192.168.8.49:20059`,
 so this bridge is the **TCP server** it connects to.
 
+## Desktop app (tray + dashboard) — recommended
+
+The bridge ships as a background Windows app with a browser-based control panel
+styled to match the RFID authorization client.
+
+- **Build the `.exe`:** run `build-app.ps1` in PowerShell. It compiles, bundles a
+  Java runtime, and produces a self-contained app at
+  `dist\RfidBridge\RfidBridge.exe` (no Java needed on the target PC).
+- **Run it:** launch `RfidBridge.exe`. It sits in the **system tray** and keeps
+  running in the background even when the dashboard window is closed. Right-click
+  the tray icon → **Open Dashboard**, or browse `http://localhost:20080/`.
+- **Configure:** the dashboard edits every `bridge.properties` key with inline
+  help, then saves and restarts the listener. Comments in the file are preserved.
+- **Logs:** a live log viewer (filter by Info/Warn/Error) is built into the
+  dashboard. Everything is also written to
+  `%LOCALAPPDATA%\RfidBridge\logs\bridge.log` — tray menu → **Open logs folder**.
+- **Run at Windows startup:** toggle in the dashboard (or the tray menu). Adds a
+  per-user `HKCU\...\Run` entry; login launches stay silent (no browser popup).
+- **Config location:** `bridge.properties` next to the app if present, otherwise
+  `%LOCALAPPDATA%\RfidBridge\bridge.properties` (seeded on first run). The
+  resolved path is shown in the dashboard header.
+
+Dev shortcut (no packaging): `run-tray.bat` compiles and launches the tray app
+from `.\out`.
+
 ## One POST per tag presence (not per read)
 The reader fires the *same* EPC many times per second while a tag sits in the field,
 but the backend opens a **new transaction on every `/rfid-reads` POST**. To avoid a
@@ -72,9 +97,19 @@ Override any key at launch: `java -Dpost.enabled=false -cp out geoplanph.RfidBri
    If different, set `frame.format` accordingly.
 
 ## Files
-- `geoplanph/RfidBridge.java` — TCP server + main loop (opens transactions, sweeps closed sessions, POSTs)
+- `geoplanph/TrayApp.java` — desktop entry point: system-tray icon + menu, starts the dashboard and bridge
+- `geoplanph/BridgeService.java` — the accept loop as a start/stop/restart service (opens transactions, sweeps closed sessions, POSTs)
+- `geoplanph/RfidBridge.java` — headless CLI entry point + shared logging helper
+- `geoplanph/WebServer.java` — embedded HTTP server: serves the dashboard and JSON API (JDK only, loopback)
+- `geoplanph/webui/index.html` — the dashboard UI (config form + live logs), styled like the auth client
+- `geoplanph/ConfigStore.java` — resolves/seeds `bridge.properties`, comment-preserving save
+- `geoplanph/Log.java` — central log sink: console + rolling file + in-memory ring buffer for the UI
+- `geoplanph/Startup.java` — "Run at Windows startup" toggle (per-user `Run` registry entry)
+- `geoplanph/Json.java` — tiny JSON escape/parse for the API
+- `geoplanph/IconGen.java` — build-time app-icon (`.ico`) generator
 - `geoplanph/SessionTracker.java` — groups the read stream into one session (one transaction) per tag presence
 - `geoplanph/FrameParser.java` — streaming frame parser + checksum
 - `geoplanph/BackendClient.java` — HTTP POST of `{"epcId":...}`
-- `geoplanph/Config.java` — config loader
+- `geoplanph/Config.java` — config value loader (system prop > env > file > default)
 - `geoplanph/TagSimulator.java` — fake reader for testing
+- `build-app.ps1` — builds the self-contained `RfidBridge.exe`; `run-tray.bat` — dev launcher

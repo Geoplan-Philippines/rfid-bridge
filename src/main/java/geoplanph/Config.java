@@ -25,9 +25,12 @@ public class Config {
     public boolean logRaw = true;
 
     public static Config load() {
+        return load(Path.of("bridge.properties"));
+    }
+
+    public static Config load(Path f) {
         Config c = new Config();
         Properties p = new Properties();
-        Path f = Path.of("bridge.properties");
         if (Files.exists(f)) {
             try (FileInputStream in = new FileInputStream(f.toFile())) {
                 p.load(in);

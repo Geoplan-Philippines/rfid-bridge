@@ -20,7 +20,8 @@ public class BackendClient {
         this.apiKey = apiKey == null ? "" : apiKey;
     }
 
-    public void sendRead(String epc) {
+    /** @return true if the backend accepted the read (2xx), false otherwise. */
+    public boolean sendRead(String epc) {
         String body = "{\"epcId\":\"" + epc + "\"}";
         HttpRequest.Builder builder = HttpRequest.newBuilder(URI.create(url))
                 .timeout(Duration.ofSeconds(5))
@@ -32,8 +33,10 @@ public class BackendClient {
         try {
             HttpResponse<String> resp = http.send(req, HttpResponse.BodyHandlers.ofString());
             RfidBridge.log("POST %s -> %d  %s", epc, resp.statusCode(), oneLine(resp.body()));
+            return resp.statusCode() >= 200 && resp.statusCode() < 300;
         } catch (Exception e) {
             RfidBridge.log("POST %s FAILED: %s", epc, e.getMessage());
+            return false;
         }
     }
 
