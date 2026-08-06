@@ -1,0 +1,489 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>RFID Bridge · Control Panel</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&family=Work+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --background:#F8FBFF; --foreground:#0B161F;
+    --heading:#0B161F; --body:#365261; --muted:#55707F;
+    --primary:#0B4EA2; --primary-hover:#03285A; --primary-fg:#FFFFFF;
+    --secondary:#E8F1FF; --secondary-fg:#0B4EA2;
+    --accent:#22D3EE;
+    --border:#DBE5F0; --input:#DBE5F0; --ring:#22D3EE;
+    --destructive:#C2261B; --muted-destructive:#FFE1DE;
+    --success:#3DBE81; --muted-success:#D1EDE0;
+    --warn:#9A6700; --muted-warn:#FBECC8;
+    --radius:2px; --radius-md:4px;
+    --card-shadow:0 1px 2px rgba(11,22,31,.04), 0 4px 16px rgba(11,78,162,.06);
+    --font-heading:'Poppins',ui-sans-serif,system-ui,sans-serif;
+    --font-body:'Work Sans',ui-sans-serif,system-ui,sans-serif;
+    --font-mono:'JetBrains Mono',ui-monospace,'Cascadia Code',Consolas,monospace;
+  }
+  * { box-sizing:border-box; }
+  html,body { margin:0; }
+  body {
+    font-family:var(--font-body); background:var(--background); color:var(--body);
+    -webkit-font-smoothing:antialiased; min-height:100vh;
+  }
+  h1,h2,h3 { font-family:var(--font-heading); color:var(--heading); font-weight:600; margin:0; }
+
+  /* ---- header ---- */
+  header {
+    background:#fff; border-bottom:1px solid var(--border); position:sticky; top:0; z-index:10;
+  }
+  .header-inner { max-width:1120px; margin:0 auto; padding:0 20px; height:64px;
+    display:flex; align-items:center; justify-content:space-between; gap:16px; }
+  .brand { display:flex; align-items:center; gap:12px; }
+  .logo { width:38px; height:38px; border-radius:var(--radius); background:var(--primary);
+    color:#fff; display:grid; place-items:center; font-family:var(--font-heading);
+    font-weight:700; font-size:15px; letter-spacing:.5px; box-shadow:inset 0 0 0 1px rgba(255,255,255,.12); }
+  .brand-text .title { font-family:var(--font-heading); font-weight:600; font-size:17px; color:var(--heading); line-height:1.1; }
+  .brand-text .subtitle { font-size:12.5px; color:var(--muted); }
+  .header-status { display:flex; align-items:center; gap:10px; }
+
+  /* ---- layout ---- */
+  main { max-width:1120px; margin:0 auto; padding:24px 20px 56px; }
+  .grid { display:grid; grid-template-columns:1fr; gap:20px; }
+  @media (min-width:960px){ .grid { grid-template-columns:minmax(0,420px) minmax(0,1fr); align-items:start; } }
+
+  .card { background:#fff; border:1px solid var(--border); border-radius:var(--radius-md);
+    box-shadow:var(--card-shadow); overflow:hidden; }
+  .card-head { padding:16px 20px; border-bottom:1px solid var(--border); display:flex;
+    align-items:center; justify-content:space-between; gap:12px; }
+  .card-head h2 { font-size:15px; }
+  .card-head .hint { font-size:12px; color:var(--muted); }
+  .card-body { padding:20px; }
+
+  /* ---- pills / badges ---- */
+  .pill { display:inline-flex; align-items:center; gap:7px; font-size:12.5px; font-weight:600;
+    padding:5px 11px; border-radius:999px; border:1px solid transparent; white-space:nowrap; }
+  .pill .dot { width:8px; height:8px; border-radius:50%; background:currentColor; box-shadow:0 0 0 3px color-mix(in srgb, currentColor 18%, transparent); }
+  .pill.ok { background:var(--muted-success); color:#1B7A4E; border-color:#B6E3CD; }
+  .pill.off { background:#EEF2F7; color:var(--muted); border-color:var(--border); }
+  .pill.err { background:var(--muted-destructive); color:var(--destructive); border-color:#F3C7C2; }
+  .pill.live { background:var(--secondary); color:var(--secondary-fg); border-color:#CBDFFB; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.35} }
+  .pill.ok .dot { animation:pulse 1.8s ease-in-out infinite; }
+
+  /* ---- stat tiles ---- */
+  .stats { display:grid; grid-template-columns:repeat(2,1fr); gap:12px; }
+  @media (min-width:520px){ .stats { grid-template-columns:repeat(4,1fr); } }
+  .stat { border:1px solid var(--border); border-radius:var(--radius); padding:12px 14px; background:#FCFDFF; }
+  .stat .k { font-size:11.5px; text-transform:uppercase; letter-spacing:.6px; color:var(--muted); font-weight:600; }
+  .stat .v { font-family:var(--font-heading); font-weight:600; font-size:22px; color:var(--heading); margin-top:2px; line-height:1.1; }
+  .stat .v.small { font-size:14px; font-family:var(--font-body); font-weight:600; }
+
+  .meta-row { display:flex; flex-wrap:wrap; gap:8px 20px; margin-top:16px; font-size:12.5px; color:var(--muted); }
+  .meta-row b { color:var(--body); font-weight:600; }
+  .meta-row code { font-family:var(--font-mono); font-size:11.5px; background:#F1F5FB; padding:1px 6px; border-radius:var(--radius); color:var(--body); }
+
+  /* ---- controls ---- */
+  .controls { display:flex; flex-wrap:wrap; gap:10px; margin-top:18px; align-items:center; }
+  .btn { font-family:var(--font-body); font-weight:600; font-size:13.5px; cursor:pointer;
+    border-radius:var(--radius); padding:9px 16px; border:1px solid transparent; display:inline-flex;
+    align-items:center; gap:8px; transition:background .15s,border-color .15s,color .15s,box-shadow .15s; }
+  .btn:focus-visible { outline:2px solid var(--ring); outline-offset:2px; }
+  .btn-primary { background:var(--primary); color:#fff; }
+  .btn-primary:hover { background:var(--primary-hover); }
+  .btn-secondary { background:var(--secondary); color:var(--secondary-fg); border-color:#CBDFFB; }
+  .btn-secondary:hover { background:#DBEAFE; }
+  .btn-ghost { background:#fff; color:var(--body); border-color:var(--border); }
+  .btn-ghost:hover { background:#F4F8FD; }
+  .btn-danger { background:#fff; color:var(--destructive); border-color:#F3C7C2; }
+  .btn-danger:hover { background:var(--muted-destructive); }
+  .btn:disabled { opacity:.5; cursor:not-allowed; }
+  .btn svg { width:15px; height:15px; }
+  .spacer { flex:1 1 auto; }
+
+  /* ---- form ---- */
+  .field { margin-bottom:18px; }
+  .field:last-child { margin-bottom:0; }
+  .field label { display:block; font-weight:600; font-size:13.5px; color:var(--heading); margin-bottom:6px; }
+  .field .help { font-size:12px; color:var(--muted); margin-top:6px; line-height:1.45; }
+  input[type=text], input[type=number], select {
+    width:100%; font-family:var(--font-body); font-size:14px; color:var(--foreground);
+    padding:9px 11px; border:1px solid var(--input); border-radius:var(--radius); background:#fff; }
+  input[type=text]:focus, input[type=number]:focus, select:focus {
+    outline:none; border-color:var(--primary); box-shadow:0 0 0 3px color-mix(in srgb,var(--ring) 30%,transparent); }
+  .key-input { display:flex; gap:8px; }
+  .key-input input { font-family:var(--font-mono); font-size:12.5px; letter-spacing:.2px; }
+
+  /* toggle */
+  .toggle { display:flex; align-items:center; justify-content:space-between; gap:14px;
+    border:1px solid var(--border); border-radius:var(--radius); padding:12px 14px; background:#FCFDFF; }
+  .toggle .tt { font-weight:600; font-size:13.5px; color:var(--heading); }
+  .toggle .td { font-size:12px; color:var(--muted); margin-top:2px; }
+  .switch { position:relative; width:44px; height:24px; flex:0 0 auto; }
+  .switch input { opacity:0; width:0; height:0; }
+  .switch .track { position:absolute; inset:0; background:#CBD5E1; border-radius:999px; transition:.18s; }
+  .switch .track::before { content:""; position:absolute; height:18px; width:18px; left:3px; top:3px;
+    background:#fff; border-radius:50%; transition:.18s; box-shadow:0 1px 2px rgba(0,0,0,.25); }
+  .switch input:checked + .track { background:var(--primary); }
+  .switch input:checked + .track::before { transform:translateX(20px); }
+  .switch input:focus-visible + .track { box-shadow:0 0 0 3px color-mix(in srgb,var(--ring) 35%,transparent); }
+
+  /* ---- logs ---- */
+  .log-toolbar { display:flex; flex-wrap:wrap; align-items:center; gap:8px; }
+  .log-toolbar select { width:auto; padding:6px 9px; font-size:12.5px; }
+  .seg { display:inline-flex; border:1px solid var(--border); border-radius:var(--radius); overflow:hidden; }
+  .seg button { border:none; background:#fff; padding:6px 11px; font-size:12.5px; font-weight:600; color:var(--muted); cursor:pointer; }
+  .seg button.active { background:var(--secondary); color:var(--secondary-fg); }
+  .log-view { margin-top:14px; height:440px; overflow:auto; background:#0B161F0A; border:1px solid var(--border);
+    border-radius:var(--radius); font-family:var(--font-mono); font-size:12.5px; line-height:1.6; }
+  .log-line { display:grid; grid-template-columns:78px 58px 1fr; gap:10px; padding:2px 14px;
+    border-left:3px solid transparent; white-space:pre-wrap; word-break:break-word; }
+  .log-line:hover { background:#0B4EA20A; }
+  .log-line .lt { color:var(--muted); }
+  .log-line .lv { font-weight:600; font-size:11px; text-transform:uppercase; letter-spacing:.4px; align-self:center; }
+  .log-line.INFO { border-left-color:#CBDFFB; }
+  .log-line.INFO .lv { color:var(--secondary-fg); }
+  .log-line.WARN { border-left-color:var(--warn); background:#FBECC833; }
+  .log-line.WARN .lv { color:var(--warn); }
+  .log-line.ERROR { border-left-color:var(--destructive); background:#FFE1DE55; }
+  .log-line.ERROR .lv, .log-line.ERROR .lx { color:var(--destructive); }
+  .log-empty { padding:24px; text-align:center; color:var(--muted); font-family:var(--font-body); }
+
+  /* ---- toast ---- */
+  #toast { position:fixed; right:20px; bottom:20px; display:flex; flex-direction:column; gap:10px; z-index:50; }
+  .toast { min-width:260px; max-width:360px; background:#fff; border:1px solid var(--border);
+    border-left:4px solid var(--primary); border-radius:var(--radius); box-shadow:var(--card-shadow);
+    padding:12px 14px; font-size:13.5px; color:var(--body); animation:slidein .2s ease; }
+  .toast.ok { border-left-color:var(--success); }
+  .toast.err { border-left-color:var(--destructive); }
+  .toast .th { font-weight:600; color:var(--heading); font-family:var(--font-heading); font-size:13.5px; margin-bottom:2px; }
+  @keyframes slidein { from{ transform:translateY(8px); opacity:0 } to{ transform:none; opacity:1 } }
+
+  .muted { color:var(--muted); }
+  .visually-hidden { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); }
+</style>
+</head>
+<body>
+<header>
+  <div class="header-inner">
+    <div class="brand">
+      <div class="logo" aria-hidden="true">RB</div>
+      <div class="brand-text">
+        <div class="title">RFID Bridge</div>
+        <div class="subtitle">Reader → Backend gateway</div>
+      </div>
+    </div>
+    <div class="header-status">
+      <span id="hdr-reader" class="pill off"><span class="dot"></span>No reader</span>
+      <span id="hdr-state" class="pill off"><span class="dot"></span>Unknown</span>
+    </div>
+  </div>
+</header>
+
+<main>
+  <div class="grid">
+    <!-- LEFT: configuration -->
+    <section class="card" aria-labelledby="cfg-title">
+      <div class="card-head">
+        <h2 id="cfg-title">Configuration</h2>
+        <span class="hint">bridge.properties</span>
+      </div>
+      <div class="card-body">
+        <form id="cfg-form" autocomplete="off"></form>
+        <div class="controls">
+          <button type="submit" form="cfg-form" class="btn btn-primary" id="save-btn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+            Save &amp; apply
+          </button>
+          <button type="button" class="btn btn-ghost" id="reload-btn">Revert</button>
+        </div>
+        <p class="help" style="margin-top:12px">Saving writes the file and restarts the listener with the new settings. Comments in the file are preserved.</p>
+      </div>
+    </section>
+
+    <!-- RIGHT: status + logs -->
+    <div style="display:flex; flex-direction:column; gap:20px;">
+      <section class="card" aria-labelledby="st-title">
+        <div class="card-head">
+          <h2 id="st-title">Bridge status</h2>
+          <span id="st-config-path" class="hint"></span>
+        </div>
+        <div class="card-body">
+          <div class="stats">
+            <div class="stat"><div class="k">Listener</div><div id="s-state" class="v small">—</div></div>
+            <div class="stat"><div class="k">Transactions</div><div id="s-tx" class="v">0</div></div>
+            <div class="stat"><div class="k">Posts OK</div><div id="s-ok" class="v">0</div></div>
+            <div class="stat"><div class="k">Posts failed</div><div id="s-fail" class="v">0</div></div>
+          </div>
+          <div class="meta-row">
+            <span>Listening on <b id="s-port">—</b></span>
+            <span>Reader: <b id="s-reader">—</b></span>
+            <span>Uptime: <b id="s-uptime">—</b></span>
+            <span>Backend: <code id="s-backend">—</code></span>
+          </div>
+          <div id="s-error" class="meta-row" style="display:none; color:var(--destructive)"></div>
+
+          <div class="controls">
+            <button type="button" class="btn btn-primary" id="start-btn">Start</button>
+            <button type="button" class="btn btn-danger" id="stop-btn">Stop</button>
+            <button type="button" class="btn btn-ghost" id="restart-btn">Restart</button>
+            <span class="spacer"></span>
+          </div>
+
+          <div class="toggle" style="margin-top:16px">
+            <div>
+              <div class="tt">Run at Windows startup</div>
+              <div class="td">Launch the bridge automatically when you sign in.</div>
+            </div>
+            <label class="switch">
+              <input type="checkbox" id="startup-toggle" />
+              <span class="track"></span>
+              <span class="visually-hidden">Run at Windows startup</span>
+            </label>
+          </div>
+        </div>
+      </section>
+
+      <section class="card" aria-labelledby="log-title">
+        <div class="card-head">
+          <h2 id="log-title">Live logs</h2>
+          <div class="log-toolbar">
+            <div class="seg" role="group" aria-label="Filter by level">
+              <button type="button" data-lvl="ALL" class="active">All</button>
+              <button type="button" data-lvl="INFO">Info</button>
+              <button type="button" data-lvl="WARN">Warn</button>
+              <button type="button" data-lvl="ERROR">Error</button>
+            </div>
+            <button type="button" class="btn btn-ghost" id="pause-btn" style="padding:6px 11px; font-size:12.5px">Pause</button>
+            <button type="button" class="btn btn-ghost" id="clear-btn" style="padding:6px 11px; font-size:12.5px">Clear</button>
+            <button type="button" class="btn btn-secondary" id="openlogs-btn" style="padding:6px 11px; font-size:12.5px">Open log folder</button>
+          </div>
+        </div>
+        <div class="card-body" style="padding:14px 20px 20px">
+          <div id="log-view" class="log-view" aria-live="polite">
+            <div class="log-empty">Waiting for activity…</div>
+          </div>
+        </div>
+      </section>
+    </div>
+  </div>
+</main>
+
+<div id="toast" aria-live="assertive"></div>
+
+<script>
+const FIELDS = [
+  { key:'listen.port', label:'Listen port', type:'number',
+    help:'TCP port this bridge listens on. Must equal the reader’s Destination Port.' },
+  { key:'backend.url', label:'Backend URL', type:'text',
+    help:'Endpoint that receives each scanned EPC as {"epcId":"…"}.' },
+  { key:'api.key', label:'API key', type:'key',
+    help:'Sent in the x-api-key header. An empty/unknown/revoked key makes the backend return 401.' },
+  { key:'frame.format', label:'Frame format', type:'select',
+    options:['AUTO_DETECT','AUTO_VAR','AUTO_FIXED12','PROTOCOL_E0'],
+    help:'Start with AUTO_DETECT, then pin the exact format once confirmed from the RX logs.' },
+  { key:'session.gap.ms', label:'Session gap (ms)', type:'number',
+    help:'Quiet time with no reads before a tag’s presence-session closes. Same EPC after this = a new transaction.' },
+  { key:'session.max.ms', label:'Session max (ms)', type:'number',
+    help:'Safety cap: force-close a session this long after it opened. 0 disables the cap.' },
+  { key:'post.enabled', label:'POST to backend', type:'bool',
+    help:'When off, EPCs are only printed — no HTTP POST. Useful before the backend is ready.' },
+  { key:'log.raw', label:'Log raw bytes', type:'bool',
+    help:'Log every raw byte chunk received. Handy during commissioning; turn off in production.' },
+];
+
+const $ = (s, r=document) => r.querySelector(s);
+function toast(title, msg, kind='') {
+  const el = document.createElement('div');
+  el.className = 'toast ' + kind;
+  el.innerHTML = '<div class="th"></div><div class="tm"></div>';
+  el.querySelector('.th').textContent = title;
+  el.querySelector('.tm').textContent = msg || '';
+  $('#toast').appendChild(el);
+  setTimeout(() => { el.style.opacity='0'; el.style.transition='opacity .3s'; setTimeout(()=>el.remove(),300); }, 3200);
+}
+
+/* ---------- config form ---------- */
+function buildForm() {
+  const f = $('#cfg-form');
+  f.innerHTML = '';
+  for (const fd of FIELDS) {
+    const wrap = document.createElement('div'); wrap.className = 'field';
+    const id = 'f-' + fd.key.replace(/\./g,'-');
+    if (fd.type === 'bool') {
+      wrap.innerHTML =
+        '<div class="toggle"><div><div class="tt">'+fd.label+'</div><div class="td">'+fd.help+'</div></div>'+
+        '<label class="switch"><input type="checkbox" id="'+id+'"><span class="track"></span></label></div>';
+    } else {
+      let control;
+      if (fd.type === 'select') {
+        control = '<select id="'+id+'">'+fd.options.map(o=>'<option value="'+o+'">'+o+'</option>').join('')+'</select>';
+      } else if (fd.type === 'key') {
+        control = '<div class="key-input"><input type="text" id="'+id+'" spellcheck="false">'+
+          '<button type="button" class="btn btn-ghost" data-copy="'+id+'" style="padding:9px 12px">Copy</button></div>';
+      } else {
+        control = '<input type="'+(fd.type==='number'?'number':'text')+'" id="'+id+'" spellcheck="false">';
+      }
+      wrap.innerHTML = '<label for="'+id+'">'+fd.label+'</label>'+control+'<div class="help">'+fd.help+'</div>';
+    }
+    f.appendChild(wrap);
+  }
+  f.querySelectorAll('[data-copy]').forEach(b => b.addEventListener('click', () => {
+    const inp = $('#'+b.dataset.copy); navigator.clipboard?.writeText(inp.value);
+    toast('Copied', 'API key copied to clipboard.', 'ok');
+  }));
+}
+
+function fillForm(values) {
+  for (const fd of FIELDS) {
+    const el = $('#f-' + fd.key.replace(/\./g,'-'));
+    if (!el) continue;
+    const v = values[fd.key] ?? '';
+    if (fd.type === 'bool') el.checked = String(v).toLowerCase() === 'true';
+    else el.value = v;
+  }
+}
+
+function collectForm() {
+  const out = {};
+  for (const fd of FIELDS) {
+    const el = $('#f-' + fd.key.replace(/\./g,'-'));
+    if (!el) continue;
+    out[fd.key] = fd.type === 'bool' ? String(el.checked) : el.value.trim();
+  }
+  return out;
+}
+
+async function loadConfig() {
+  const r = await fetch('/api/config'); const j = await r.json();
+  fillForm(j.values || {});
+  $('#st-config-path').textContent = j.path || '';
+}
+
+$('#cfg-form').addEventListener('submit', async e => {
+  e.preventDefault();
+  const btn = $('#save-btn'); btn.disabled = true;
+  try {
+    const r = await fetch('/api/config', { method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify(collectForm()) });
+    const j = await r.json();
+    if (j.ok && j.running) toast('Saved', 'Configuration applied; listener restarted.', 'ok');
+    else if (j.ok && !j.running) toast('Saved, not listening', j.error || 'Check the port — listener did not start.', 'err');
+    else toast('Save failed', j.error || 'Unknown error', 'err');
+  } catch (err) { toast('Save failed', err.message, 'err'); }
+  finally { btn.disabled = false; refreshStatus(); }
+});
+$('#reload-btn').addEventListener('click', loadConfig);
+
+/* ---------- controls ---------- */
+async function control(action) {
+  const r = await fetch('/api/control', { method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({action}) });
+  const j = await r.json();
+  if (j.running) toast('Listener ' + action + 'ed', 'Bridge is running.', 'ok');
+  else toast('Listener stopped', j.error || '', j.error ? 'err' : '');
+  refreshStatus();
+}
+$('#start-btn').addEventListener('click', () => control('start'));
+$('#stop-btn').addEventListener('click', () => control('stop'));
+$('#restart-btn').addEventListener('click', () => control('restart'));
+
+$('#startup-toggle').addEventListener('change', async e => {
+  const enabled = e.target.checked;
+  const r = await fetch('/api/startup', { method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({enabled}) });
+  const j = await r.json();
+  e.target.checked = j.enabled;
+  toast('Startup', j.enabled ? 'Will run at Windows startup.' : 'Removed from Windows startup.', 'ok');
+});
+$('#openlogs-btn').addEventListener('click', () => fetch('/api/open-logs', {method:'POST'}));
+
+/* ---------- status ---------- */
+function fmtUptime(ms) {
+  if (!ms) return '—';
+  const s = Math.floor(ms/1000), h = Math.floor(s/3600), m = Math.floor((s%3600)/60), ss = s%60;
+  return (h?h+'h ':'') + (m?m+'m ':'') + ss + 's';
+}
+async function refreshStatus() {
+  try {
+    const j = await (await fetch('/api/status')).json();
+    const running = j.running;
+    $('#s-state').textContent = running ? 'Running' : 'Stopped';
+    $('#s-tx').textContent = j.transactionsOpened;
+    $('#s-ok').textContent = j.postsOk;
+    $('#s-fail').textContent = j.postsFailed;
+    $('#s-port').textContent = ':' + j.port;
+    $('#s-reader').textContent = j.readerPeer || 'not connected';
+    $('#s-uptime').textContent = fmtUptime(j.uptimeMs);
+    $('#s-backend').textContent = j.backendUrl;
+    $('#startup-toggle').checked = j.startupEnabled;
+
+    const st = $('#hdr-state');
+    st.className = 'pill ' + (running ? 'ok' : 'off');
+    st.innerHTML = '<span class="dot"></span>' + (running ? 'Running' : 'Stopped');
+    const rd = $('#hdr-reader');
+    rd.className = 'pill ' + (j.readerPeer ? 'live' : 'off');
+    rd.innerHTML = '<span class="dot"></span>' + (j.readerPeer ? 'Reader connected' : 'No reader');
+
+    const errEl = $('#s-error');
+    if (j.lastError) { errEl.style.display='flex'; errEl.textContent = '⚠ ' + j.lastError; }
+    else errEl.style.display='none';
+  } catch (e) {
+    const st = $('#hdr-state'); st.className='pill err'; st.innerHTML='<span class="dot"></span>Disconnected';
+  }
+}
+
+/* ---------- logs ---------- */
+let lastSeq = 0, paused = false, filter = 'ALL';
+const view = $('#log-view');
+function atBottom() { return view.scrollHeight - view.scrollTop - view.clientHeight < 40; }
+function applyFilter() {
+  view.querySelectorAll('.log-line').forEach(el => {
+    el.style.display = (filter === 'ALL' || el.dataset.level === filter) ? '' : 'none';
+  });
+}
+async function pollLogs() {
+  if (paused) return;
+  try {
+    const j = await (await fetch('/api/logs?since=' + lastSeq)).json();
+    if (j.entries && j.entries.length) {
+      const stick = atBottom();
+      const empty = view.querySelector('.log-empty'); if (empty) empty.remove();
+      const frag = document.createDocumentFragment();
+      for (const e of j.entries) {
+        const line = document.createElement('div');
+        line.className = 'log-line ' + e.level; line.dataset.level = e.level;
+        if (filter !== 'ALL' && filter !== e.level) line.style.display = 'none';
+        line.innerHTML = '<span class="lt"></span><span class="lv"></span><span class="lx"></span>';
+        line.querySelector('.lt').textContent = e.time;
+        line.querySelector('.lv').textContent = e.level;
+        line.querySelector('.lx').textContent = e.text;
+        frag.appendChild(line);
+      }
+      view.appendChild(frag);
+      // cap DOM size
+      while (view.children.length > 3000) view.removeChild(view.firstChild);
+      if (stick) view.scrollTop = view.scrollHeight;
+    }
+    lastSeq = j.last;
+  } catch (e) { /* transient */ }
+}
+document.querySelectorAll('.seg button').forEach(b => b.addEventListener('click', () => {
+  document.querySelectorAll('.seg button').forEach(x => x.classList.remove('active'));
+  b.classList.add('active'); filter = b.dataset.lvl; applyFilter();
+}));
+$('#pause-btn').addEventListener('click', e => {
+  paused = !paused; e.target.textContent = paused ? 'Resume' : 'Pause';
+  e.target.classList.toggle('btn-secondary', paused);
+});
+$('#clear-btn').addEventListener('click', () => { view.innerHTML = '<div class="log-empty">Cleared. New lines will appear here.</div>'; });
+
+/* ---------- boot ---------- */
+buildForm();
+loadConfig();
+refreshStatus();
+pollLogs();
+setInterval(refreshStatus, 2000);
+setInterval(pollLogs, 1000);
+</script>
+</body>
+</html>

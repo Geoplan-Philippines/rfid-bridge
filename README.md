@@ -65,6 +65,74 @@ The headless entry point is `geoplanph.Daemon` (bridge listener + dashboard +
 clean SIGTERM shutdown, no AWT). Requirements: `openjdk-17-jre-headless` (the
 installer adds it automatically).
 
+Two things that look like faults on Linux but aren't:
+
+- `Startup toggle error: Cannot run program "reg"` in the log — the dashboard's
+  **Run at Windows startup** toggle shells out to the Windows registry and is
+  meaningless here. Boot start is already handled by `systemctl enable`. Ignore it.
+- The dashboard shows **No reader** until the reader actually dials in. The
+  listener being *Running* only means the socket is open — see below.
+
+### Network setup — the reader must be able to reach *and* answer
+
+This is where commissioning actually goes wrong. The bridge is the **TCP server**;
+the reader dials in. Two conditions must both hold:
+
+1. **The host holds the IP the reader is configured to dial** (its Destination IP).
+2. **The host has a route back to the reader's own subnet.** If the reader lives on
+   a different subnet than the host address it dials, the SYN arrives but the
+   SYN-ACK is sent to a default gateway that doesn't exist on an isolated device
+   LAN — the handshake never completes and the dashboard sits on *No reader*
+   forever, with no error logged. Give the NIC a second address inside the
+   reader's subnet and the return path is direct.
+
+Find the reader without knowing its IP — it answers ARP even when it can't
+complete a connection:
+
+```bash
+ip neigh show dev <iface>          # a resolved lladdr = a live device on the wire
+sudo tcpdump -ni <iface> 'tcp port 20059'   # SYNs with no reply = return-path problem
+```
+
+Assign the addresses with NetworkManager (survives reboot; `+ipv4.addresses`
+*adds* rather than replaces). Clear the gateway if this NIC is an isolated device
+LAN — a dead gateway only creates a bogus default route:
+
+```bash
+sudo nmcli con mod "<profile>" +ipv4.addresses <host-ip-in-reader-subnet>/24
+sudo nmcli con mod "<profile>" ipv4.gateway ""
+sudo nmcli con up  "<profile>"
+```
+
+Then open the reader's own web UI to confirm its **Destination IP/Port** matches
+the host address and `listen.port`.
+
+**Verify end to end:**
+
+```bash
+ss -ltn  | grep 20059     # LISTEN *:20059            -> listener up
+ss -tn   | grep 20059     # ESTAB ...                 -> reader actually connected
+journalctl -u rfid-bridge -f | grep -E 'Reader connected|TRANSACTION'
+```
+
+`Reader connected: /<ip>:<port>` in the log — and the reader's IP in the dashboard
+badge — is the only real proof the path works.
+
+#### Eagle Cement site values (as commissioned)
+
+| | |
+|---|---|
+| Interface | `enxfc1928643580` (USB ethernet), NM profile `Wired connection 1` |
+| Host addresses | `192.168.8.49/24` (the reader's Destination IP) **and** `192.168.10.50/24` (return path) |
+| Gateway | cleared — isolated device LAN |
+| Reader | `192.168.10.133`, dials `192.168.8.49:20059` |
+| Config | `/opt/rfid-bridge/bridge.properties` |
+
+The second address is the whole fix: the reader dials `192.168.8.49` but lives on
+`192.168.10.0/24`, so without `192.168.10.50` on the NIC the replies had nowhere
+to go. The original profile shipped with `ipv4.gateway=192.168.10.1` and no
+address in that subnet, which is why it never worked.
+
 ## One POST per tag presence (not per read)
 The reader fires the *same* EPC many times per second while a tag sits in the field,
 but the backend opens a **new transaction on every `/rfid-reads` POST**. To avoid a
@@ -124,9 +192,13 @@ A fake reader connects and pushes sample EPCs (incl. `AAAAAA000111`).
 Override any key at launch: `java -Dpost.enabled=false -cp out geoplanph.RfidBridge`
 
 ## Connecting the real reader
-1. This PC must hold IP **192.168.8.49** (the reader's Dest IP) — see ../SETUP.md.
-2. Run `run.bat` (listening on :20059).
-3. Power/trigger the reader; it connects in and tags start printing.
+1. This PC must hold the reader's Destination IP (**192.168.8.49** at Eagle Cement)
+   *and* have a route back to the reader's own subnet — see
+   [Network setup](#network-setup--the-reader-must-be-able-to-reach-and-answer)
+   for why both are required and how to configure them.
+2. Run `run.bat` (Windows) or start the service (Linux); it listens on :20059.
+3. Power/trigger the reader; it connects in and tags start printing. The log line
+   `Reader connected: /<ip>:<port>` confirms the handshake.
 4. Confirm the `RX ...` bytes match the `AUTO_VAR` layout (`00 dev len EPC ant cs FF`).
    If different, set `frame.format` accordingly.
 
