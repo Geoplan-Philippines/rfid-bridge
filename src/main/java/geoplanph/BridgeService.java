@@ -3,6 +3,8 @@ package geoplanph;
 import java.io.InputStream;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -32,6 +34,16 @@ public class BridgeService {
 
     private final AtomicBoolean running = new AtomicBoolean(false);
     private final AtomicReference<String> readerPeer = new AtomicReference<>(null);
+    // Accepted reader sockets, so stop() can close them: closing only the
+    // ServerSocket leaves the reader talking to an orphaned handler that still
+    // parses frames under the pre-restart config, while the UI shows no reader.
+    private final Set<Socket> liveSockets = ConcurrentHashMap.newKeySet();
+    // Identifies each accepted connection. The reader dials from a FIXED source
+    // port, so peer strings repeat across reconnects and can't tell one
+    // connection from the next -- a closing handler would clear the badge of the
+    // live connection that replaced it.
+    private final AtomicLong connSeq = new AtomicLong(0);
+    private final AtomicLong currentConnId = new AtomicLong(-1);
     private final AtomicReference<String> lastError = new AtomicReference<>(null);
     private final AtomicLong transactionsOpened = new AtomicLong(0);
     private final AtomicLong postsOk = new AtomicLong(0);
@@ -94,8 +106,16 @@ public class BridgeService {
         if (!running.get()) return;
         running.set(false);
         try { if (server != null) server.close(); } catch (Exception ignored) { }
+        // Drop the reader too, so it redials into the restarted listener and
+        // picks up the new config. Closing the socket makes the handler's
+        // blocking read() throw, which unwinds its thread.
+        for (Socket s : liveSockets) {
+            try { s.close(); } catch (Exception ignored) { }
+        }
+        liveSockets.clear();
         if (sweeper != null) sweeper.shutdownNow();
         if (posters != null) posters.shutdownNow();
+        currentConnId.set(-1);
         readerPeer.set(null);
         RfidBridge.log("RFID bridge stopped.");
     }
@@ -117,21 +137,25 @@ public class BridgeService {
                 break; // server closed on stop()
             }
             String peer = String.valueOf(sock.getRemoteSocketAddress());
+            long connId = connSeq.incrementAndGet();
+            liveSockets.add(sock);
             readerPeer.set(peer);
+            currentConnId.set(connId);
             RfidBridge.log("Reader connected: %s", peer);
-            Thread t = new Thread(() -> handle(sock, peer), "reader-" + peer);
+            Thread t = new Thread(() -> handle(sock, peer, connId), "reader-" + peer + "#" + connId);
             t.setDaemon(true);
             t.start();
         }
     }
 
-    private void handle(Socket sock, String peer) {
+    private void handle(Socket sock, String peer, long connId) {
         Config c = this.cfg;
         FrameParser parser = new FrameParser(c.frameFormat);
         byte[] buf = new byte[4096];
         try (InputStream in = sock.getInputStream()) {
             int n;
             while ((n = in.read(buf)) != -1) {
+                if (!running.get()) break; // listener stopped/restarted under us
                 if (n == 0) continue;
                 if (c.logRaw) RfidBridge.log("RX %s  %s", peer, FrameParser.hex(buf, 0, n, true));
                 for (FrameParser.TagRead tr : parser.feed(buf, n)) {
@@ -153,10 +177,12 @@ public class BridgeService {
                 }
             }
         } catch (Exception e) {
-            RfidBridge.log("Reader %s read error: %s", peer, e.getMessage());
+            if (running.get()) RfidBridge.log("Reader %s read error: %s", peer, e.getMessage());
         } finally {
+            liveSockets.remove(sock);
             try { sock.close(); } catch (Exception ignored) { }
-            if (peer.equals(readerPeer.get())) readerPeer.set(null);
+            // Only clear the badge if THIS connection is still the current one.
+            if (currentConnId.compareAndSet(connId, -1)) readerPeer.set(null);
             RfidBridge.log("Reader disconnected: %s", peer);
         }
     }

@@ -76,7 +76,10 @@ fi
 echo "Installing systemd unit -> $UNIT"
 install -m 644 "$here/rfid-bridge.service" "$UNIT"
 systemctl daemon-reload
-systemctl enable --now rfid-bridge.service
+systemctl enable rfid-bridge.service
+# restart, not 'enable --now': --now is a no-op on an already-running service,
+# which would silently leave the OLD jar running after a re-install/upgrade.
+systemctl restart rfid-bridge.service
 
 echo ""
 echo "Done. The bridge is running and will start on boot."
