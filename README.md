@@ -31,6 +31,40 @@ styled to match the RFID authorization client.
 Dev shortcut (no packaging): `run-tray.bat` compiles and launches the tray app
 from `.\out`.
 
+## Linux (Ubuntu) — run headless as a systemd service
+
+For a server/box with no desktop, the bridge runs as a background **systemd**
+service (no tray, no display). The dashboard still runs, bound to loopback.
+
+Everything lives in `linux/`:
+
+- **Build the jar** (portable, runs on any JRE 17+ — you can even build it on
+  Windows and copy it over): `bash linux/build-linux.sh` → `dist/rfid-bridge.jar`.
+- **Install + start the service** (installs Java if missing, creates the
+  `rfidbridge` user, deploys to `/opt/rfid-bridge`, enables on boot):
+  ```
+  sudo bash linux/install.sh
+  ```
+- **Configure:** edit `/opt/rfid-bridge/bridge.properties` (same keys as below),
+  then `sudo systemctl restart rfid-bridge`. Your edits survive re-installs.
+- **Status / logs:**
+  ```
+  systemctl status rfid-bridge
+  journalctl -u rfid-bridge -f
+  ```
+  (also written to `/opt/rfid-bridge/RfidBridge/logs/bridge.log`)
+- **Dashboard:** bound to loopback for safety. Reach it from your PC via an SSH
+  tunnel, then open `http://localhost:20080/`:
+  ```
+  ssh -L 20080:localhost:20080 user@<server-ip>
+  ```
+- **Uninstall:** `sudo bash linux/uninstall.sh` (add `--purge` to also delete
+  `/opt/rfid-bridge` and the service user).
+
+The headless entry point is `geoplanph.Daemon` (bridge listener + dashboard +
+clean SIGTERM shutdown, no AWT). Requirements: `openjdk-17-jre-headless` (the
+installer adds it automatically).
+
 ## One POST per tag presence (not per read)
 The reader fires the *same* EPC many times per second while a tag sits in the field,
 but the backend opens a **new transaction on every `/rfid-reads` POST**. To avoid a
@@ -98,6 +132,8 @@ Override any key at launch: `java -Dpost.enabled=false -cp out geoplanph.RfidBri
 
 ## Files
 - `geoplanph/TrayApp.java` — desktop entry point: system-tray icon + menu, starts the dashboard and bridge
+- `geoplanph/Daemon.java` — headless entry point (Linux/systemd): dashboard + bridge, clean SIGTERM shutdown, no tray
+- `linux/` — `build-linux.sh` (portable jar), `install.sh`/`uninstall.sh`, and the `rfid-bridge.service` systemd unit
 - `geoplanph/BridgeService.java` — the accept loop as a start/stop/restart service (opens transactions, sweeps closed sessions, POSTs)
 - `geoplanph/RfidBridge.java` — headless CLI entry point + shared logging helper
 - `geoplanph/WebServer.java` — embedded HTTP server: serves the dashboard and JSON API (JDK only, loopback)

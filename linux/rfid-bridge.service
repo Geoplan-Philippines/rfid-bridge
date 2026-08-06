@@ -1,0 +1,30 @@
+[Unit]
+Description=RFID -> Backend Bridge (Geoplan)
+Documentation=https://github.com/Geoplan-Philippines/rfid-bridge
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=rfidbridge
+Group=rfidbridge
+WorkingDirectory=/opt/rfid-bridge
+# HOME steers the log/appdata dir to /opt/rfid-bridge/RfidBridge/logs
+Environment=HOME=/opt/rfid-bridge
+# Headless: no AWT/display is touched, but make it explicit.
+ExecStart=/usr/bin/java -Djava.awt.headless=true -jar /opt/rfid-bridge/rfid-bridge.jar
+Restart=on-failure
+RestartSec=5
+# systemd sends SIGTERM on stop; Daemon's shutdown hook closes sockets cleanly.
+KillSignal=SIGTERM
+TimeoutStopSec=20
+
+# --- hardening (safe for a loopback dashboard + one outbound TCP + HTTP) ---
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/opt/rfid-bridge
+
+[Install]
+WantedBy=multi-user.target
