@@ -3,6 +3,7 @@ package geoplanph;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
 
+import java.awt.Desktop;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.InetAddress;
@@ -42,6 +43,7 @@ public class WebServer {
         http.createContext("/api/control", this::apiControl);
         http.createContext("/api/startup", this::apiStartup);
         http.createContext("/api/open-logs", this::apiOpenLogs);
+        http.createContext("/api/clear-logs", this::apiClearLogs);
         http.setExecutor(java.util.concurrent.Executors.newFixedThreadPool(4));
         http.start();
         Log.info("Dashboard available at " + url());
@@ -160,9 +162,25 @@ public class WebServer {
 
     private void apiOpenLogs(HttpExchange ex) throws IOException {
         try {
-            Files.createDirectories(Log.logsDir());
-            new ProcessBuilder("explorer.exe", Log.logsDir().toString()).start();
+            java.nio.file.Path dir = Log.logsDir();
+            Files.createDirectories(dir);
+            if (Desktop.isDesktopSupported() && Desktop.getDesktop().isSupported(Desktop.Action.OPEN)) {
+                Desktop.getDesktop().open(dir.toFile());
+            } else {
+                // Fallback for Linux environments where Desktop may not be supported
+                String os = System.getProperty("os.name", "").toLowerCase();
+                if (os.contains("linux")) {
+                    new ProcessBuilder("xdg-open", dir.toString()).start();
+                } else {
+                    new ProcessBuilder("explorer.exe", dir.toString()).start();
+                }
+            }
         } catch (Exception ignored) { }
+        sendJson(ex, 200, "{\"ok\":true}");
+    }
+
+    private void apiClearLogs(HttpExchange ex) throws IOException {
+        Log.clear();
         sendJson(ex, 200, "{\"ok\":true}");
     }
 

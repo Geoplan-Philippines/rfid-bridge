@@ -231,13 +231,13 @@
 
           <div class="toggle" style="margin-top:16px">
             <div>
-              <div class="tt">Run at Windows startup</div>
-              <div class="td">Launch the bridge automatically when you sign in.</div>
+              <div class="tt">Run at system startup</div>
+              <div class="td">Launch the bridge automatically when the machine starts.</div>
             </div>
             <label class="switch">
               <input type="checkbox" id="startup-toggle" />
               <span class="track"></span>
-              <span class="visually-hidden">Run at Windows startup</span>
+              <span class="visually-hidden">Run at system startup</span>
             </label>
           </div>
         </div>
@@ -393,7 +393,7 @@ $('#startup-toggle').addEventListener('change', async e => {
     body: JSON.stringify({enabled}) });
   const j = await r.json();
   e.target.checked = j.enabled;
-  toast('Startup', j.enabled ? 'Will run at Windows startup.' : 'Removed from Windows startup.', 'ok');
+  toast('Startup', j.enabled ? 'Will run at system startup.' : 'Removed from system startup.', 'ok');
 });
 $('#openlogs-btn').addEventListener('click', () => fetch('/api/open-logs', {method:'POST'}));
 
@@ -475,7 +475,7 @@ $('#pause-btn').addEventListener('click', e => {
   paused = !paused; e.target.textContent = paused ? 'Resume' : 'Pause';
   e.target.classList.toggle('btn-secondary', paused);
 });
-$('#clear-btn').addEventListener('click', () => { view.innerHTML = '<div class="log-empty">Cleared. New lines will appear here.</div>'; });
+$('#clear-btn').addEventListener('click', () => { fetch('/api/clear-logs', {method:'POST'}); view.innerHTML = '<div class="log-empty">Cleared. New lines will appear here.</div>'; lastSeq = 0; });
 
 /* ---------- boot ---------- */
 buildForm();

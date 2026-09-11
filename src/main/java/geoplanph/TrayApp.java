@@ -87,7 +87,7 @@ public class TrayApp {
         logs.addActionListener(e -> openLogs());
         menu.add(logs);
 
-        CheckboxMenuItem startup = new CheckboxMenuItem("Run at Windows startup", Startup.isEnabled());
+        CheckboxMenuItem startup = new CheckboxMenuItem("Run at system startup", Startup.isEnabled());
         startup.addItemListener(e -> Startup.setEnabled(startup.getState()));
         menu.add(startup);
         menu.addSeparator();
@@ -122,8 +122,18 @@ public class TrayApp {
 
     private static void openLogs() {
         try {
-            java.nio.file.Files.createDirectories(Log.logsDir());
-            new ProcessBuilder("explorer.exe", Log.logsDir().toString()).start();
+            java.nio.file.Path dir = Log.logsDir();
+            java.nio.file.Files.createDirectories(dir);
+            if (Desktop.isDesktopSupported() && Desktop.getDesktop().isSupported(Desktop.Action.OPEN)) {
+                Desktop.getDesktop().open(dir.toFile());
+            } else {
+                String os = System.getProperty("os.name", "").toLowerCase();
+                if (os.contains("linux")) {
+                    new ProcessBuilder("xdg-open", dir.toString()).start();
+                } else {
+                    new ProcessBuilder("explorer.exe", dir.toString()).start();
+                }
+            }
         } catch (Exception e) {
             Log.warn("Could not open logs folder: " + e.getMessage());
         }

@@ -140,4 +140,27 @@ public final class Log {
     public static long lastSeq() {
         synchronized (LOCK) { return seq; }
     }
+
+    /** Clear the in-memory ring buffer and delete log files on disk. */
+    public static synchronized void clear() {
+        synchronized (LOCK) {
+            RING.clear();
+        }
+        try {
+            // Close current file handle
+            if (fileOut != null) {
+                fileOut.close();
+                fileOut = null;
+            }
+            // Delete log files
+            Files.deleteIfExists(logsDir().resolve("bridge.log"));
+            Files.deleteIfExists(logsDir().resolve("bridge.prev.log"));
+            // Reopen so new logs still get written to file
+            logFile = logsDir().resolve("bridge.log");
+            fileOut = Files.newOutputStream(logFile,
+                    StandardOpenOption.CREATE, StandardOpenOption.APPEND, StandardOpenOption.WRITE);
+        } catch (IOException e) {
+            System.err.println("Failed to clear log files: " + e.getMessage());
+        }
+    }
 }
