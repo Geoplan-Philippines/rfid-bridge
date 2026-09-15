@@ -72,7 +72,7 @@ public class BridgeService {
             return;
         }
         backend = new BackendClient(c.backendUrl, c.apiKey);
-        posters = Executors.newFixedThreadPool(4);
+        posters = Executors.newCachedThreadPool();
         tracker = new SessionTracker(c.sessionGapMs, c.sessionMaxMs);
         lastError.set(null);
         running.set(true);
@@ -185,5 +185,16 @@ public class BridgeService {
             if (currentConnId.compareAndSet(connId, -1)) readerPeer.set(null);
             RfidBridge.log("Reader disconnected: %s", peer);
         }
+    }
+
+    private boolean isExpresswayTag(String epc) {
+        Config c = this.cfg;
+        if (!c.ignoreExpresswayTags || epc == null || epc.isEmpty()) return false;
+        String u = epc.toUpperCase();
+        for (String p : c.expresswayPrefixes.split(",")) {
+            String prefix = p.trim().toUpperCase();
+            if (!prefix.isEmpty() && u.startsWith(prefix)) return true;
+        }
+        return false;
     }
 }

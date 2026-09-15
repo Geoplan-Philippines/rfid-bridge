@@ -23,6 +23,9 @@ public class Config {
     // Safety cap (ms): force-close a session this long after it opened. 0 = disabled.
     public long sessionMaxMs = 0;
     public boolean logRaw = true;
+    // Expressway / Tollway tag filtering (Autosweep: 534D43/EE/ED/EC, Easytrip: 454153/77)
+    public boolean ignoreExpresswayTags = true;
+    public String expresswayPrefixes = "534D43,454153,EE,77,ED,EC";
 
     public static Config load() {
         return load(Path.of("bridge.properties"));
@@ -48,6 +51,8 @@ public class Config {
         else if ((v = get(p, "dedup.window.ms")) != null) c.sessionGapMs = parseLong(v, c.sessionGapMs); // legacy alias
         if ((v = get(p, "session.max.ms")) != null)   c.sessionMaxMs = parseLong(v, c.sessionMaxMs);
         if ((v = get(p, "log.raw")) != null)          c.logRaw = Boolean.parseBoolean(v.trim());
+        if ((v = get(p, "ignore.expressway.tags")) != null) c.ignoreExpresswayTags = Boolean.parseBoolean(v.trim());
+        if ((v = get(p, "expressway.prefixes")) != null)     c.expresswayPrefixes = v.trim();
         return c;
     }
 
